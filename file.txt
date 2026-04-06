@@ -58,7 +58,7 @@ category bar chart below
 
 git commit -m "landing: redesign hero section to match mockup”
 
-Add a modal to templates/landing.html that opens when the user clicks
+Add a modal to @templates/landing.html that opens when the user clicks
 "See how it works".
 
 Requirements:
