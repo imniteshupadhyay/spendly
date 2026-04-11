@@ -557,6 +557,40 @@ a { color: inherit; text-decoration: none; }
     font-size: 0.875rem;
 }
 
+.password-wrapper {
+    position: relative;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.2rem 0.3rem;
+    transition: color 0.2s;
+}
+
+.password-toggle:hover {
+    color: var(--ink);
+}
+
+.password-wrapper .form-input {
+    padding-right: 3.5rem;
+}
+
+.nav-greeting {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
 .form-group { margin-bottom: 1.25rem; }
 
 .form-group label {

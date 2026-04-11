@@ -1,8 +1,9 @@
+import functools
 import os
 import sqlite3
 
-from flask import Flask, flash, redirect, render_template, request, url_for
-from werkzeug.security import generate_password_hash
+from flask import Flask, flash, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from database.db import get_db, init_db, seed_db
 
@@ -12,6 +13,28 @@ app.secret_key = os.urandom(24)
 with app.app_context():
     init_db()
     seed_db()
+
+
+# ------------------------------------------------------------------ #
+# Helpers                                                             #
+# ------------------------------------------------------------------ #
+
+def login_required(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user_id"):
+            flash("Please sign in to continue.")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.context_processor
+def inject_auth():
+    return {
+        "logged_in": "user_id" in session,
+        "user_name": session.get("user_name", ""),
+    }
 
 
 # ------------------------------------------------------------------ #
@@ -25,6 +48,9 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if session.get("user_id"):
+        return redirect(url_for("landing"))
+
     if request.method == "GET":
         return render_template("register.html")
 
@@ -58,9 +84,30 @@ def register():
     return redirect(url_for("login"))
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if session.get("user_id"):
+        return redirect(url_for("landing"))
+
+    if request.method == "GET":
+        return render_template("login.html")
+
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    db = get_db()
+    user = db.execute(
+        "SELECT id, name, password_hash FROM users WHERE email = ?",
+        (email,),
+    ).fetchone()
+    db.close()
+
+    if not user or not check_password_hash(user["password_hash"], password):
+        return render_template("login.html", error="Invalid email or password.", email=email)
+
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"]
+    return redirect(url_for("landing"))
 
 
 # ------------------------------------------------------------------ #
@@ -78,11 +125,15 @@ def privacy():
 
 
 @app.route("/logout")
+@login_required
 def logout():
-    return "Logout — coming in Step 3"
+    session.clear()
+    flash("You have been signed out.")
+    return redirect(url_for("landing"))
 
 
 @app.route("/profile")
+@login_required
 def profile():
     return "Profile page — coming in Step 4"
 
