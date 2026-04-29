@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — Spendly{% endblock %}
+
+{% block content %}
+
+<section class="profile-section">
+    <div class="profile-container">
+
+        <div class="profile-header">
+            <h1 class="profile-title">Your profile</h1>
+            <p class="profile-subtitle">Manage your account and review your spending</p>
+        </div>
+
+        <div class="profile-top-grid">
+            <div class="profile-card profile-info-card">
+                <div class="profile-info-head">
+                    <div class="profile-avatar">{{ user.name[:1]|upper }}</div>
+                    <div>
+                        <div class="profile-info-name">{{ user.name }}</div>
+                        <div class="profile-info-email">{{ user.email }}</div>
+                    </div>
+                </div>
+                <div class="profile-fields">
+                    <div class="profile-field">
+                        <span class="profile-field-label">Name</span>
+                        <span class="profile-field-value">{{ user.name }}</span>
+                    </div>
+                    <div class="profile-field">
+                        <span class="profile-field-label">Email</span>
+                        <span class="profile-field-value">{{ user.email }}</span>
+                    </div>
+                    <div class="profile-field">
+                        <span class="profile-field-label">Member since</span>
+                        <span class="profile-field-value">{{ member_since }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-stats">
+                <div class="stat-cards profile-stat-cards">
+                    <div class="stat-card">
+                        <span class="stat-label">Total spent</span>
+                        <span class="stat-value">$365.54</span>
+                        <span class="stat-note stat-note--muted">This month</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Transactions</span>
+                        <span class="stat-value">8</span>
+                        <span class="stat-note stat-note--muted">This month</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Top category</span>
+                        <span class="stat-value">Bills</span>
+                        <span class="stat-note stat-note--muted">$120.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-forms-grid">
+            <div class="profile-card profile-form-card">
+                <h2 class="profile-card-title">Update profile</h2>
+                {% if error_profile %}
+                <div class="auth-error">{{ error_profile }}</div>
+                {% endif %}
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <div class="form-group">
+                        <label for="name">Full name</label>
+                        <input type="text" id="name" name="name"
+                               class="form-input" placeholder="Your name"
+                               value="{{ form_name if form_name is defined else user.name }}"
+                               required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email address</label>
+                        <input type="email" id="email" name="email"
+                               class="form-input" placeholder="you@example.com"
+                               value="{{ form_email if form_email is defined else user.email }}"
+                               required maxlength="254">
+                    </div>
+                    <button type="submit" class="btn-submit">Save changes</button>
+                </form>
+            </div>
+
+            <div class="profile-card profile-form-card">
+                <h2 class="profile-card-title">Change password</h2>
+                {% if error_password %}
+                <div class="auth-error">{{ error_password }}</div>
+                {% endif %}
+                <form method="POST" action="{{ url_for('profile_password') }}">
+                    <div class="form-group">
+                        <label for="current_password">Current password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="current_password" name="current_password"
+                                   class="form-input" placeholder="Your current password" required>
+                            <button type="button" class="password-toggle"
+                                    onclick="const p=document.getElementById('current_password');const show=p.type==='password';p.type=show?'text':'password';this.textContent=show?'Hide':'Show';">Show</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="new_password">New password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="new_password" name="new_password"
+                                   class="form-input" placeholder="Min. 8 characters"
+                                   required minlength="8">
+                            <button type="button" class="password-toggle"
+                                    onclick="const p=document.getElementById('new_password');const show=p.type==='password';p.type=show?'text':'password';this.textContent=show?'Hide':'Show';">Show</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">Update password</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="profile-card txn-card">
+            <h2 class="profile-card-title">Recent transactions</h2>
+            <table class="txn-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th class="txn-amount-col">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Apr 18, 2026</td>
+                        <td>Grocery run</td>
+                        <td><span class="txn-category-badge txn-category--food">Food</span></td>
+                        <td class="txn-amount">$22.30</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 15, 2026</td>
+                        <td>Miscellaneous</td>
+                        <td><span class="txn-category-badge txn-category--other">Other</span></td>
+                        <td class="txn-amount">$15.00</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 12, 2026</td>
+                        <td>New shoes</td>
+                        <td><span class="txn-category-badge txn-category--shopping">Shopping</span></td>
+                        <td class="txn-amount">$89.99</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 10, 2026</td>
+                        <td>Movie tickets</td>
+                        <td><span class="txn-category-badge txn-category--entertainment">Entertainment</span></td>
+                        <td class="txn-amount">$25.00</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 08, 2026</td>
+                        <td>Pharmacy</td>
+                        <td><span class="txn-category-badge txn-category--health">Health</span></td>
+                        <td class="txn-amount">$35.75</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 05, 2026</td>
+                        <td>Electricity bill</td>
+                        <td><span class="txn-category-badge txn-category--bills">Bills</span></td>
+                        <td class="txn-amount">$120.00</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 03, 2026</td>
+                        <td>Monthly bus pass</td>
+                        <td><span class="txn-category-badge txn-category--transport">Transport</span></td>
+                        <td class="txn-amount">$45.00</td>
+                    </tr>
+                    <tr>
+                        <td>Apr 01, 2026</td>
+                        <td>Lunch at cafe</td>
+                        <td><span class="txn-category-badge txn-category--food">Food</span></td>
+                        <td class="txn-amount">$12.50</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="profile-card">
+            <h2 class="profile-card-title">Category breakdown</h2>
+            <div class="category-breakdown">
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Bills</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 32.8%"></div></div>
+                    <span class="cat-progress-value">$120.00</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Shopping</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 24.6%"></div></div>
+                    <span class="cat-progress-value">$89.99</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Transport</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 12.3%"></div></div>
+                    <span class="cat-progress-value">$45.00</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Health</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 9.8%"></div></div>
+                    <span class="cat-progress-value">$35.75</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Food</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 9.5%"></div></div>
+                    <span class="cat-progress-value">$34.80</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Entertainment</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 6.8%"></div></div>
+                    <span class="cat-progress-value">$25.00</span>
+                </div>
+                <div class="cat-progress-row">
+                    <span class="cat-progress-label">Other</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 4.1%"></div></div>
+                    <span class="cat-progress-value">$15.00</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}
