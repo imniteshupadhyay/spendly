@@ -1,6 +1,7 @@
 import functools
 import os
 import sqlite3
+from datetime import datetime
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -87,7 +88,7 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("user_id"):
-        return redirect(url_for("landing"))
+        return redirect(url_for("profile"))
 
     if request.method == "GET":
         return render_template("login.html")
@@ -107,7 +108,7 @@ def login():
 
     session["user_id"] = user["id"]
     session["user_name"] = user["name"]
-    return redirect(url_for("landing"))
+    return redirect(url_for("profile"))
 
 
 # ------------------------------------------------------------------ #
@@ -132,10 +133,108 @@ def logout():
     return redirect(url_for("landing"))
 
 
-@app.route("/profile")
+@app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
-    return "Profile page — coming in Step 4"
+    db = get_db()
+    user = db.execute(
+        "SELECT id, name, email, created_at FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
+
+    if not user:
+        db.close()
+        session.clear()
+        flash("Please sign in to continue.")
+        return redirect(url_for("login"))
+
+    try:
+        member_since = datetime.strptime(
+            user["created_at"], "%Y-%m-%d %H:%M:%S"
+        ).strftime("%B %Y")
+    except (ValueError, TypeError):
+        member_since = ""
+
+    if request.method == "GET":
+        db.close()
+        return render_template("profile.html", user=user, member_since=member_since)
+
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+
+    def rerender(msg):
+        db.close()
+        return render_template(
+            "profile.html",
+            user=user,
+            member_since=member_since,
+            error_profile=msg,
+            form_name=name,
+            form_email=email,
+        )
+
+    if not name or len(name) > 100:
+        return rerender("Name is required (max 100 characters).")
+    if not email or "@" not in email or len(email) > 254:
+        return rerender("A valid email address is required.")
+
+    try:
+        db.execute(
+            "UPDATE users SET name = ?, email = ? WHERE id = ?",
+            (name, email, session["user_id"]),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        return rerender("That email is already in use.")
+
+    session["user_name"] = name
+    db.close()
+    flash("Profile updated.")
+    return redirect(url_for("profile"))
+
+
+@app.route("/profile/password", methods=["POST"])
+@login_required
+def profile_password():
+    current = request.form.get("current_password", "")
+    new = request.form.get("new_password", "")
+
+    db = get_db()
+    user = db.execute(
+        "SELECT id, name, email, password_hash, created_at FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
+
+    def rerender(msg):
+        try:
+            member_since = datetime.strptime(
+                user["created_at"], "%Y-%m-%d %H:%M:%S"
+            ).strftime("%B %Y")
+        except (ValueError, TypeError):
+            member_since = ""
+        db.close()
+        return render_template(
+            "profile.html",
+            user=user,
+            member_since=member_since,
+            error_password=msg,
+        )
+
+    if not user or not check_password_hash(user["password_hash"], current):
+        return rerender("Current password is incorrect.")
+    if len(new) < 8:
+        return rerender("New password must be at least 8 characters.")
+    if check_password_hash(user["password_hash"], new):
+        return rerender("New password must differ from the current password.")
+
+    db.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        (generate_password_hash(new), session["user_id"]),
+    )
+    db.commit()
+    db.close()
+    flash("Password changed.")
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/add")
