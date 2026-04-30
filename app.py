@@ -1,7 +1,7 @@
 import functools
 import os
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -35,6 +35,117 @@ def inject_auth():
     return {
         "logged_in": "user_id" in session,
         "user_name": session.get("user_name", ""),
+    }
+
+
+VALID_RANGES = {"all", "7d", "30d", "60d", "90d", "month", "custom"}
+PRESET_DAYS = {"7d": 7, "30d": 30, "60d": 60, "90d": 90}
+
+
+def _format_window_label(prefix, start, end):
+    return f"{prefix} ({start.strftime('%b %d')} — {end.strftime('%b %d, %Y')})"
+
+
+def resolve_range(args):
+    range_key = args.get("range", "all")
+    if range_key not in VALID_RANGES:
+        range_key = "all"
+
+    today = date.today()
+
+    if range_key in PRESET_DAYS:
+        days = PRESET_DAYS[range_key]
+        end = today
+        start = end - timedelta(days=days - 1)
+        return range_key, start, end, _format_window_label(f"Last {days} days", start, end)
+
+    if range_key == "month":
+        start = today.replace(day=1)
+        end = today
+        return range_key, start, end, _format_window_label("This month", start, end)
+
+    if range_key == "custom":
+        try:
+            start = datetime.strptime(args.get("from", ""), "%Y-%m-%d").date()
+            end = datetime.strptime(args.get("to", ""), "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return "all", None, None, "All time"
+        if start > end:
+            start, end = end, start
+        return range_key, start, end, _format_window_label("Custom range", start, end)
+
+    return "all", None, None, "All time"
+
+
+def load_profile_view_data(db, user_id, args):
+    range_key, start, end, range_label = resolve_range(args)
+
+    if start is None:
+        rows = db.execute(
+            "SELECT id, amount, category, date, description "
+            "FROM expenses WHERE user_id = ? "
+            "ORDER BY date DESC, id DESC",
+            (user_id,),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT id, amount, category, date, description "
+            "FROM expenses WHERE user_id = ? AND date BETWEEN ? AND ? "
+            "ORDER BY date DESC, id DESC",
+            (user_id, start.isoformat(), end.isoformat()),
+        ).fetchall()
+
+    expenses = []
+    category_totals = {}
+    total_spent = 0.0
+
+    for row in rows:
+        try:
+            date_display = datetime.strptime(row["date"], "%Y-%m-%d").strftime("%b %d, %Y")
+        except (ValueError, TypeError):
+            date_display = row["date"] or ""
+
+        amount = row["amount"] or 0.0
+        category = row["category"] or "Other"
+        total_spent += amount
+        category_totals[category] = category_totals.get(category, 0.0) + amount
+
+        expenses.append({
+            "id": row["id"],
+            "amount": amount,
+            "category": category,
+            "category_slug": category.lower(),
+            "date": row["date"],
+            "date_display": date_display,
+            "description": row["description"] or "",
+        })
+
+    sorted_categories = sorted(category_totals.items(), key=lambda kv: kv[1], reverse=True)
+    if sorted_categories:
+        top_category, top_category_amount = sorted_categories[0]
+    else:
+        top_category, top_category_amount = None, 0.0
+
+    category_breakdown = [
+        {
+            "label": label,
+            "amount": amt,
+            "pct": (amt / total_spent * 100) if total_spent else 0,
+        }
+        for label, amt in sorted_categories
+    ]
+
+    return {
+        "range": range_key,
+        "from_date": args.get("from", "") if range_key == "custom" else "",
+        "to_date": args.get("to", "") if range_key == "custom" else "",
+        "range_label": range_label,
+        "expenses": expenses,
+        "total_spent": total_spent,
+        "txn_count": len(expenses),
+        "top_category": top_category,
+        "top_category_amount": top_category_amount,
+        "category_breakdown": category_breakdown,
     }
 
 
@@ -156,13 +267,20 @@ def profile():
         member_since = ""
 
     if request.method == "GET":
+        view_data = load_profile_view_data(db, session["user_id"], request.args)
         db.close()
-        return render_template("profile.html", user=user, member_since=member_since)
+        return render_template(
+            "profile.html",
+            user=user,
+            member_since=member_since,
+            **view_data,
+        )
 
     name = request.form.get("name", "").strip()
     email = request.form.get("email", "").strip().lower()
 
     def rerender(msg):
+        view_data = load_profile_view_data(db, session["user_id"], request.args)
         db.close()
         return render_template(
             "profile.html",
@@ -171,6 +289,7 @@ def profile():
             error_profile=msg,
             form_name=name,
             form_email=email,
+            **view_data,
         )
 
     if not name or len(name) > 100:
@@ -212,12 +331,14 @@ def profile_password():
             ).strftime("%B %Y")
         except (ValueError, TypeError):
             member_since = ""
+        view_data = load_profile_view_data(db, session["user_id"], request.args)
         db.close()
         return render_template(
             "profile.html",
             user=user,
             member_since=member_since,
             error_password=msg,
+            **view_data,
         )
 
     if not user or not check_password_hash(user["password_hash"], current):

@@ -135,6 +135,7 @@ Always check test output for signals of these common Spendly mistakes:
 - Any JS framework imports → only vanilla JS allowed
 - `database/db.py` helpers assumed to exist before they are implemented → check step status in CLAUDE.md
 
+
 ---
 
 ## Escalation Policy
