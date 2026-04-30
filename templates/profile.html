@@ -12,6 +12,22 @@
             <p class="profile-subtitle">Manage your account and review your spending</p>
         </div>
 
+        <form method="GET" action="{{ url_for('profile') }}" class="profile-card filter-bar">
+            <div class="filter-presets">
+                {% for key, label in [('all','All'), ('7d','7d'), ('30d','30d'), ('60d','60d'), ('90d','90d'), ('month','Month'), ('custom','Custom')] %}
+                <button type="submit" name="range" value="{{ key }}"
+                        class="filter-pill {% if range == key %}filter-pill--active{% endif %}">{{ label }}</button>
+                {% endfor %}
+            </div>
+            <div class="filter-custom-range" {% if range != 'custom' %}hidden{% endif %}>
+                <input type="date" name="from" value="{{ from_date }}">
+                <span class="filter-sep">to</span>
+                <input type="date" name="to" value="{{ to_date }}">
+                <button type="submit" name="range" value="custom" class="btn-submit filter-apply">Apply</button>
+            </div>
+            <p class="filter-label">Showing: {{ range_label }}</p>
+        </form>
+
         <div class="profile-top-grid">
             <div class="profile-card profile-info-card">
                 <div class="profile-info-head">
@@ -41,18 +57,18 @@
                 <div class="stat-cards profile-stat-cards">
                     <div class="stat-card">
                         <span class="stat-label">Total spent</span>
-                        <span class="stat-value">$365.54</span>
-                        <span class="stat-note stat-note--muted">This month</span>
+                        <span class="stat-value">{{ "$%.2f"|format(total_spent) }}</span>
+                        <span class="stat-note stat-note--muted">{{ range_label }}</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-label">Transactions</span>
-                        <span class="stat-value">8</span>
-                        <span class="stat-note stat-note--muted">This month</span>
+                        <span class="stat-value">{{ txn_count }}</span>
+                        <span class="stat-note stat-note--muted">{{ range_label }}</span>
                     </div>
                     <div class="stat-card">
                         <span class="stat-label">Top category</span>
-                        <span class="stat-value">Bills</span>
-                        <span class="stat-note stat-note--muted">$120.00</span>
+                        <span class="stat-value">{{ top_category if top_category else "—" }}</span>
+                        <span class="stat-note stat-note--muted">{% if top_category %}{{ "$%.2f"|format(top_category_amount) }}{% else %}—{% endif %}</span>
                     </div>
                 </div>
             </div>
@@ -125,54 +141,16 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% for e in expenses %}
                     <tr>
-                        <td>Apr 18, 2026</td>
-                        <td>Grocery run</td>
-                        <td><span class="txn-category-badge txn-category--food">Food</span></td>
-                        <td class="txn-amount">$22.30</td>
+                        <td>{{ e.date_display }}</td>
+                        <td>{{ e.description }}</td>
+                        <td><span class="txn-category-badge txn-category--{{ e.category_slug }}">{{ e.category }}</span></td>
+                        <td class="txn-amount">{{ "$%.2f"|format(e.amount) }}</td>
                     </tr>
-                    <tr>
-                        <td>Apr 15, 2026</td>
-                        <td>Miscellaneous</td>
-                        <td><span class="txn-category-badge txn-category--other">Other</span></td>
-                        <td class="txn-amount">$15.00</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 12, 2026</td>
-                        <td>New shoes</td>
-                        <td><span class="txn-category-badge txn-category--shopping">Shopping</span></td>
-                        <td class="txn-amount">$89.99</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 10, 2026</td>
-                        <td>Movie tickets</td>
-                        <td><span class="txn-category-badge txn-category--entertainment">Entertainment</span></td>
-                        <td class="txn-amount">$25.00</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 08, 2026</td>
-                        <td>Pharmacy</td>
-                        <td><span class="txn-category-badge txn-category--health">Health</span></td>
-                        <td class="txn-amount">$35.75</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 05, 2026</td>
-                        <td>Electricity bill</td>
-                        <td><span class="txn-category-badge txn-category--bills">Bills</span></td>
-                        <td class="txn-amount">$120.00</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 03, 2026</td>
-                        <td>Monthly bus pass</td>
-                        <td><span class="txn-category-badge txn-category--transport">Transport</span></td>
-                        <td class="txn-amount">$45.00</td>
-                    </tr>
-                    <tr>
-                        <td>Apr 01, 2026</td>
-                        <td>Lunch at cafe</td>
-                        <td><span class="txn-category-badge txn-category--food">Food</span></td>
-                        <td class="txn-amount">$12.50</td>
-                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="txn-empty">No transactions in this range.</td></tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -180,45 +158,37 @@
         <div class="profile-card">
             <h2 class="profile-card-title">Category breakdown</h2>
             <div class="category-breakdown">
+                {% for row in category_breakdown %}
                 <div class="cat-progress-row">
-                    <span class="cat-progress-label">Bills</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 32.8%"></div></div>
-                    <span class="cat-progress-value">$120.00</span>
+                    <span class="cat-progress-label">{{ row.label }}</span>
+                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: {{ '%.1f'|format(row.pct) }}%"></div></div>
+                    <span class="cat-progress-value">{{ "$%.2f"|format(row.amount) }}</span>
                 </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Shopping</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 24.6%"></div></div>
-                    <span class="cat-progress-value">$89.99</span>
-                </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Transport</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 12.3%"></div></div>
-                    <span class="cat-progress-value">$45.00</span>
-                </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Health</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 9.8%"></div></div>
-                    <span class="cat-progress-value">$35.75</span>
-                </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Food</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 9.5%"></div></div>
-                    <span class="cat-progress-value">$34.80</span>
-                </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Entertainment</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 6.8%"></div></div>
-                    <span class="cat-progress-value">$25.00</span>
-                </div>
-                <div class="cat-progress-row">
-                    <span class="cat-progress-label">Other</span>
-                    <div class="cat-progress-track"><div class="cat-progress-fill" style="width: 4.1%"></div></div>
-                    <span class="cat-progress-value">$15.00</span>
-                </div>
+                {% else %}
+                <p class="txn-empty">No spending in this range.</p>
+                {% endfor %}
             </div>
         </div>
 
     </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var customPill = document.querySelector('.filter-pill[value="custom"]');
+    var customRange = document.querySelector('.filter-custom-range');
+    if (!customPill || !customRange) return;
+    customPill.addEventListener('click', function (event) {
+        if (customRange.hasAttribute('hidden')) {
+            event.preventDefault();
+            customRange.removeAttribute('hidden');
+            var fromInput = customRange.querySelector('input[name="from"]');
+            if (fromInput) fromInput.focus();
+        }
+    });
+})();
+</script>
 {% endblock %}
